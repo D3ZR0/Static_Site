@@ -2,6 +2,7 @@ import unittest
 from functions import *
 from htmlnode import HTMLNode, LeafNode, ParentNode
 from textnode import TextNode, TextType
+from blocktype import *
 
 class TestConverters(unittest.TestCase):
     def test_text(self):
@@ -121,6 +122,90 @@ class TestConverters(unittest.TestCase):
             ], 
             new_nodes, 
         )
+
+    def test_text_to_textnodes(self):
+        text = "This is **text** with an _italic_ word and a `code block` and an ![obi wan image](https://i.imgur.com/fJRm4Vk.jpeg) and a [link](https://boot.dev)"
+        textnodes = text_to_textnodes(text)
+        self.assertListEqual(
+            [
+                TextNode("This is ", TextType.TEXT),
+                TextNode("text", TextType.BOLD),
+                TextNode(" with an ", TextType.TEXT),
+                TextNode("italic", TextType.ITALIC),
+                TextNode(" word and a ", TextType.TEXT),
+                TextNode("code block", TextType.CODE),
+                TextNode(" and an ", TextType.TEXT),
+                TextNode("obi wan image", TextType.IMAGE, "https://i.imgur.com/fJRm4Vk.jpeg"),
+                TextNode(" and a ", TextType.TEXT),
+                TextNode("link", TextType.LINK, "https://boot.dev"),
+            ],
+            textnodes,
+        )
+
+    def test_markdown_to_blocks(self):
+        md = """
+This is **bolded** paragraph
+
+This is another paragraph with _italic_ text and `code` here
+This is the same paragraph on a new line
+
+- This is a list
+- with items
+"""
+        blocks = markdown_to_blocks(md)
+        self.assertEqual(
+            blocks,
+            [
+                "This is **bolded** paragraph",
+                "This is another paragraph with _italic_ text and `code` here\nThis is the same paragraph on a new line",
+                "- This is a list\n- with items",
+            ],
+        )
+
+    def test_block_to_block_type_code(self):
+        text = "``` this is a code block```"
+        result = block_to_block_type(text)
+        self.assertEqual(BlockType.CODE, result)
+
+    def test_block_to_block_type_heading_bad(self):
+        text = "###badheading"
+        result = block_to_block_type(text)
+        self.assertEqual(BlockType.PARAGRAPH, result)
+    
+    def test_block_to_block_type_heading(self):
+        text = "#### a real heading"
+        result = block_to_block_type(text)
+        self.assertEqual(BlockType.HEADING, result)
+
+    def test_block_to_block_type_multiquote(self):
+        text = """> chicken
+> is 
+> amazing"""
+        result = block_to_block_type(text)
+        self.assertEqual(BlockType.QUOTE, result)
+
+    def test_block_to_block_type_ordered_list(self):
+        text = """1. chicken
+2. is 
+3. love"""
+        result = block_to_block_type(text)
+        self.assertEqual(BlockType.ORDERED_LIST, result)
+
+    def test_block_to_block_type_unordered_list(self):
+        text = """- i  
+- am 
+- not 
+- a 
+- chicken"""
+        result = block_to_block_type(text)
+        self.assertEqual(BlockType.UNORDERED_LIST, result)
+
+    def test_block_to_block_type_paragraph(self):
+        text = """- i 
+- am 
+actually a paragraph"""
+        result = block_to_block_type(text)
+        self.assertEqual(BlockType.PARAGRAPH, result)
 
     
     
