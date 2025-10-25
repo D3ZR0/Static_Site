@@ -189,6 +189,8 @@ def markdown_to_html_node(markdown):
                     stripped.append(line[2:])
                 elif line.startswith(">"):
                     stripped.append(line[1:])
+                elif line == "":
+                    continue
                 else:
                     stripped.append(line)
             quote_text = "\n".join(stripped)
@@ -197,11 +199,56 @@ def markdown_to_html_node(markdown):
             continue
         
         if bt == BlockType.ORDERED_LIST:
-        
+            lines = block.split("\n")
+            line_children = []
+            stripped = []
+            count = 0
+            for line in lines:
+                count += 1
+                if line.startswith(f"{count}. "):
+                    new_lines = line.split(" ")
+                    stripped.append(new_lines[1])
+                elif line.startswith(f"{count}"):
+                    new_lines = line.split(".")
+                    stripped.append(new_lines[1])
+                elif line == "":
+                    continue
+                else:
+                    stripped.append(line)
+            for i in stripped:
+                child = ParentNode("li", text_to_children(i))
+                line_children.append(child)
+            parent = ParentNode("ol", line_children)
+            children.append(parent)
+            continue
         if bt == BlockType.UNORDERED_LIST:
-        
-        child = ParentNode(block_to_tag(block), text_to_children(block))
-        children.append(child)
+            lines = block.split("\n")
+            stripped = []
+            line_children = []
+            count = 0
+            for line in lines:
+                count += 1
+                if line.startswith("- "):
+                    new_lines = line.split(" ")
+                    stripped.append(new_lines[1])
+                elif line.startswith("-"):
+                    new_lines = line.split("-")
+                    stripped.append(new_lines[1])
+                elif line == "":
+                    continue
+                else:
+                    stripped.append(line)
+            for i in stripped:
+                child = ParentNode("li", text_to_children(i))
+                line_children.append(child)
+            parent = ParentNode("ul", line_children)
+            children.append(parent)
+            continue
+
+        else: 
+
+            child = ParentNode(block_to_tag(block), text_to_children(block))
+            children.append(child)
     return parentblock
 
     

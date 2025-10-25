@@ -1,9 +1,12 @@
-from textnode import *
+from recursive_copy_function import *
+import os 
+import shutil
 
 def main():
-    dummy_text_node = TextNode("Sample Text", TextType.bold)
-    print(dummy_text_node.__repr__())
+    if not os.path.exists("public"):
+        os.mkdir("public")
+    recursive_copy("static", "public", clean = True)
 
 
-
-main()
+if __name__ == "__main__":
+    main()
