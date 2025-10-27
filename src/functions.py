@@ -25,13 +25,23 @@ def split_nodes_delimiter(old_nodes, delimiter, text_type):
     new_nodes = []
     for node in old_nodes:
         if node.text_type != TextType.TEXT:
-            new_nodes.append(node)
-            continue
+            new_nodes.append(node); continue
+
         parts = node.text.split(delimiter)
-        if len(parts) %2 == 0:
+        count = len(parts) - 1  # delimiter occurrences
+
+        if count == 0:
+            new_nodes.append(node); continue
+
+        if count % 2 == 1:
+            # unmatched single opener: raise (this satisfies the test)
             raise Exception("invalid markdown syntax, unbalanced delimiter")
+
+        # balanced: alternate plain/formatted
         for i, part in enumerate(parts):
-            node_type = TextType.TEXT if i %2 == 0 else text_type    
+            if part == "":
+                continue
+            node_type = text_type if (i % 2 == 1) else TextType.TEXT
             new_nodes.append(TextNode(part, node_type))
     return new_nodes
 
@@ -40,50 +50,50 @@ def split_nodes_image(old_nodes):
     new_nodes = []
     for node in old_nodes:
         if node.text_type != TextType.TEXT:
-            new_nodes.append(node)
-            continue
-        original_text = node.text
-        listed_images = extract_markdown_images(node.text)
-        if len(listed_images) == 0:
-            new_nodes.append(node)
-            continue
-        for image in listed_images:
-            tuple_text = f"![{image[0]}]({image[1]})"
-            sections = original_text.split(tuple_text, 1)
-            if len(sections) != 2:
-                raise ValueError("invalid markdown, image section not closed")
-            if sections[0] != "":
-                new_nodes.append(TextNode(sections[0], TextType.TEXT))
-            new_nodes.append(TextNode(image[0], TextType.IMAGE, image[1]))
-            original_text = sections[1]
-        if original_text != "":
-            new_nodes.append(TextNode(original_text, TextType.TEXT))
+            new_nodes.append(node); continue
+        text = node.text
+        imgs = extract_markdown_images(text)
+        if not imgs:
+            new_nodes.append(node); continue
+        for alt, src in imgs:
+            token = f"![{alt}]({src})"
+            before, sep, after = text.partition(token)
+            if not sep:
+                # not found as literal; bail out as plain
+                new_nodes.append(TextNode(text, TextType.TEXT))
+                text = ""
+                break
+            if before:
+                new_nodes.append(TextNode(before, TextType.TEXT))
+            new_nodes.append(TextNode(alt, TextType.IMAGE, src))
+            text = after
+        if text:
+            new_nodes.append(TextNode(text, TextType.TEXT))
     return new_nodes
 
 def split_nodes_link(old_nodes):
     new_nodes = []
     for node in old_nodes:
         if node.text_type != TextType.TEXT:
-            new_nodes.append(node)
-            continue
-        original_text = node.text
-        listed_links = extract_markdown_links(node.text)
-        if len(listed_links) == 0:
-            new_nodes.append(node)
-            continue
-        for j in listed_links:
-            tuple_text = f"[{j[0]}]({j[1]})"
-            sections = original_text.split(tuple_text, 1)
-            if len(sections) != 2:
-                raise ValueError("invalid markdown, link section not closed")
-            if sections[0] != "":
-                new_nodes.append(TextNode(sections[0], TextType.TEXT))
-            new_nodes.append(TextNode(j[0], TextType.LINK, j[1]))
-            original_text = sections[1]
-        if original_text != "":
-            new_nodes.append(TextNode(original_text, TextType.TEXT))
+            new_nodes.append(node); continue
+        text = node.text
+        links = extract_markdown_links(text)
+        if not links:
+            new_nodes.append(node); continue
+        for label, href in links:
+            token = f"[{label}]({href})"
+            before, sep, after = text.partition(token)
+            if not sep:
+                new_nodes.append(TextNode(text, TextType.TEXT))
+                text = ""
+                break
+            if before:
+                new_nodes.append(TextNode(before, TextType.TEXT))
+            new_nodes.append(TextNode(label, TextType.LINK, href))
+            text = after
+        if text:
+            new_nodes.append(TextNode(text, TextType.TEXT))
     return new_nodes
-
 
 def extract_markdown_links(text):
     listed_matches = []
@@ -160,26 +170,24 @@ def text_to_children(text):
         leafnode = text_node_to_html_node(node)
         leafnodes.append(leafnode)
     return leafnodes
-        
-
     
-
 def markdown_to_html_node(markdown):
     blocks = markdown_to_blocks(markdown)
     children = []
-    parentblock = ParentNode("div", children, None)
+    parentblock = ParentNode("div", children)
     for block in blocks:
         bt = block_to_block_type(block)
-        tag = block_to_tag(block)
         if bt == BlockType.CODE:
-            code_text = "\n".join(block.split("\n")[1:-1])
-            child = ParentNode("pre", [LeafNode("code", code_text)])
-            children.append(child)
+            lines = block.split("\n")
+            inner = "\n".join(lines[1:-1])
+            if not inner.endswith("\n"):
+                inner += "\n"
+            children.append(ParentNode("pre", [LeafNode("code", inner)]))
             continue
         if bt == BlockType.HEADING:
             heading_text = block.split(" ", 1)[1]
-            child = ParentNode(tag, text_to_children(heading_text))
-            children.append(child)
+            count = len(block) - len(block.lstrip("#"))
+            children.append(ParentNode(f"h{count}", text_to_children(heading_text)))
             continue
         if bt == BlockType.QUOTE:
             lines = block.split("\n")
@@ -189,13 +197,10 @@ def markdown_to_html_node(markdown):
                     stripped.append(line[2:])
                 elif line.startswith(">"):
                     stripped.append(line[1:])
-                elif line == "":
-                    continue
-                else:
+                elif line:
                     stripped.append(line)
             quote_text = "\n".join(stripped)
-            child = ParentNode("blockquote", text_to_children(quote_text))
-            children.append(child)
+            children.append(ParentNode("blockquote", text_to_children(quote_text)))
             continue
         
         if bt == BlockType.ORDERED_LIST:
@@ -206,10 +211,10 @@ def markdown_to_html_node(markdown):
             for line in lines:
                 count += 1
                 if line.startswith(f"{count}. "):
-                    new_lines = line.split(" ")
+                    new_lines = line.split(" ", 1)
                     stripped.append(new_lines[1])
                 elif line.startswith(f"{count}"):
-                    new_lines = line.split(".")
+                    new_lines = line.split(".", 1)
                     stripped.append(new_lines[1])
                 elif line == "":
                     continue
@@ -221,6 +226,7 @@ def markdown_to_html_node(markdown):
             parent = ParentNode("ol", line_children)
             children.append(parent)
             continue
+
         if bt == BlockType.UNORDERED_LIST:
             lines = block.split("\n")
             stripped = []
@@ -229,10 +235,10 @@ def markdown_to_html_node(markdown):
             for line in lines:
                 count += 1
                 if line.startswith("- "):
-                    new_lines = line.split(" ")
+                    new_lines = line.split(" ", 1)
                     stripped.append(new_lines[1])
                 elif line.startswith("-"):
-                    new_lines = line.split("-")
+                    new_lines = line.split("-", 1)
                     stripped.append(new_lines[1])
                 elif line == "":
                     continue
@@ -244,12 +250,20 @@ def markdown_to_html_node(markdown):
             parent = ParentNode("ul", line_children)
             children.append(parent)
             continue
-
-        else: 
-
-            child = ParentNode(block_to_tag(block), text_to_children(block))
-            children.append(child)
+        if bt == BlockType.PARAGRAPH:
+            para_text = " ".join(ln.strip() for ln in block.split("\n") if ln.strip())
+            children.append(ParentNode("p", text_to_children(para_text)))
     return parentblock
-
     
                  
+def extract_title(markdown):
+    blocks = markdown_to_blocks(markdown)
+    for block in blocks:
+        if block_to_tag(block) == "h1":
+                line = block.lstrip()
+                header_text = line.split("#", 1)[1]
+                return header_text.strip()
+    raise Exception("No Header 1 detected")
+
+    
+
