@@ -3,6 +3,7 @@ from textnode import *
 from textnode import TextType
 from blocktype import *
 import re
+import os
 
 def text_node_to_html_node(text_node):
     if text_node.text_type == TextType.TEXT:
@@ -265,5 +266,23 @@ def extract_title(markdown):
                 return header_text.strip()
     raise Exception("No Header 1 detected")
 
-    
+def generate_page(from_path, template_path, dest_path):
+    if not os.path.exists(from_path):
+        raise FileNotFoundError(f"Source not found: {from_path}")
+    if not os.path.exists(template_path):
+        raise FileNotFoundError(f"Template not found: {template_path}")
+    print(f"Generating page from {from_path} to {dest_path} using {template_path}")
+    with open(from_path, 'r', encoding='utf-8') as f:
+        page_text = f.read()
+    with open(template_path, 'r', encoding='utf-8') as f:
+        template = f.read()
+    nodes = markdown_to_html_node(page_text)
+    html_page = nodes.to_html()
+    title = extract_title(page_text)
+    final_html = template.replace("{{ Title }}", title).replace("{{ Content }}", html_page)
+    parent = os.path.dirname(dest_path)    
+    if parent != "":
+        os.makedirs(parent, exist_ok = True)
+    with open(dest_path, 'w', encoding="utf-8") as f:
+        f.write(final_html)
 

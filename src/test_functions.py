@@ -240,11 +240,16 @@ the **same** even with inline stuff
         )    
     
     def test_extract_title(self):
-        markdown = "# Hello"
+        markdown = "# This is a header"
         title = extract_title(markdown)
-        self.assertEqual(title, "Hello")
+        self.assertEqual(title, "This is a header")
 
     def test_extract_title_error(self):
         markdown = "Hello"
+        with self.assertRaises(Exception):
+            extract_title(markdown)
+
+    def test_extract_title_error_h2(self):
+        markdown = "## Hello"
         with self.assertRaises(Exception):
             extract_title(markdown)
