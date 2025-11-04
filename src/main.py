@@ -7,7 +7,8 @@ def main():
     if not os.path.exists("public"):
         os.mkdir("public")
     recursive_copy("static", "public", clean = True)
-    generate_page("content/index.md", "template.html", "public/index.html")
+    recursive_generate_page("content", "template.html", "public")
+    
     
 
 

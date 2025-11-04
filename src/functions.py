@@ -286,3 +286,20 @@ def generate_page(from_path, template_path, dest_path):
     with open(dest_path, 'w', encoding="utf-8") as f:
         f.write(final_html)
 
+def recursive_generate_page(from_dir, template_path, dest_dir):
+    os.makedirs(dest_dir, exist_ok=True)
+
+    for name in os.listdir(from_dir):
+        src_path = os.path.join(from_dir, name)
+        if os.path.isdir(src_path):
+            recursive_generate_page(src_path, template_path, os.path.join(dest_dir, name))
+        elif os.path.isfile(src_path) and name.endswith(".md"):
+            base = os.path.splitext(name)[0]
+            if name == "index.md":
+                out_path = os.path.join(dest_dir, "index.html")
+            else:
+                out_path = os.path.join(dest_dir, f"{base}.html")
+            generate_page(src_path, template_path, out_path)
+
+
+
