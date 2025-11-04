@@ -266,7 +266,7 @@ def extract_title(markdown):
                 return header_text.strip()
     raise Exception("No Header 1 detected")
 
-def generate_page(from_path, template_path, dest_path):
+def generate_page(from_path, template_path, dest_path, basepath):
     if not os.path.exists(from_path):
         raise FileNotFoundError(f"Source not found: {from_path}")
     if not os.path.exists(template_path):
@@ -279,27 +279,29 @@ def generate_page(from_path, template_path, dest_path):
     nodes = markdown_to_html_node(page_text)
     html_page = nodes.to_html()
     title = extract_title(page_text)
-    final_html = template.replace("{{ Title }}", title).replace("{{ Content }}", html_page)
+    new_template = template.replace("{{ Title }}", title).replace("{{ Content }}", html_page)
+    final_html = new_template.replace('href="/', f'href="{basepath}') \
+                         .replace('src="/',  f'src="{basepath}')
     parent = os.path.dirname(dest_path)    
     if parent != "":
         os.makedirs(parent, exist_ok = True)
     with open(dest_path, 'w', encoding="utf-8") as f:
         f.write(final_html)
 
-def recursive_generate_page(from_dir, template_path, dest_dir):
+def recursive_generate_page(from_dir, template_path, dest_dir, basepath):
     os.makedirs(dest_dir, exist_ok=True)
 
     for name in os.listdir(from_dir):
         src_path = os.path.join(from_dir, name)
         if os.path.isdir(src_path):
-            recursive_generate_page(src_path, template_path, os.path.join(dest_dir, name))
+            recursive_generate_page(src_path, template_path, os.path.join(dest_dir, name), basepath)
         elif os.path.isfile(src_path) and name.endswith(".md"):
             base = os.path.splitext(name)[0]
             if name == "index.md":
                 out_path = os.path.join(dest_dir, "index.html")
             else:
                 out_path = os.path.join(dest_dir, f"{base}.html")
-            generate_page(src_path, template_path, out_path)
+            generate_page(src_path, template_path, out_path, basepath)
 
 
 

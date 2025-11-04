@@ -2,12 +2,14 @@ from recursive_copy_function import *
 import os 
 import shutil
 from functions import *
+import sys
 
 def main():
-    if not os.path.exists("public"):
-        os.mkdir("public")
-    recursive_copy("static", "public", clean = True)
-    recursive_generate_page("content", "template.html", "public")
+    basepath = sys.argv[1] if len(sys.argv) > 1 else "/"
+    if not os.path.exists("docs"):
+        os.mkdir("docs")
+    recursive_copy("static", "docs", clean = True)
+    recursive_generate_page("content", "template.html", "docs", basepath)
     
     
 
